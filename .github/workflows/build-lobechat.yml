@@ -1,0 +1,54 @@
+name: Build and Export LobeChat (Next.js) # 工作流程名称
+
+on:
+  push:
+    branches: [ main, master ] # 检查你的主分支名称
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build_and_export: # 任务名称
+    runs-on: ubuntu-latest # 运行环境
+
+    steps:
+    # 1. 检出代码
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. 设置 pnpm (LobeChat 使用 pnpm)
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8 # 可以指定 pnpm 版本，或省略使用最新版
+
+    # 3. 设置 Node.js 环境 (检查 LobeChat 要求的版本)
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '23.x' # LobeChat 通常要求 Node 18 或更高
+        cache: 'pnpm' # 缓存 pnpm 的依赖
+
+    # 4. 安装依赖
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile # 使用 pnpm 安装，--frozen-lockfile 保证 CI 环境安装版本一致
+
+    # 5. 编译项目 (Next.js build)
+    - name: Build project
+      run: pnpm build # 运行 package.json 中的 build 脚本 (通常是 next build)
+      env:
+        # 如果 LobeChat 构建需要环境变量，在这里添加
+        # NEXT_PUBLIC_SOME_VAR: 'some_value'
+        # NODE_ENV: production # 通常 build 命令会自动设置
+
+    # 6. 导出静态文件 (Next.js export)
+    # 注意：这需要 LobeChat 支持或配置了静态导出
+    # 如果 LobeChat 的 next.config.js 中没有 'output: export'，这个命令会尝试导出
+    - name: Export static files
+      run: pnpm exec next export # 运行 next export 命令
+      # 如果 LobeChat 的 package.json 中有专门的 export 脚本 (如 "export": "next export")，可以用 pnpm run export
+
+    # 7. 上传静态导出文件 (out 目录) 作为 Artifact
+    - name: Upload static export artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: lobechat-static-export # 产物名称
+        path: ./out # Next.js 静态导出默认输出到 'out' 文件夹
