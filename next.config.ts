@@ -13,15 +13,17 @@ const isUsePglite = process.env.NEXT_PUBLIC_CLIENT_DB === 'pglite';
 // if you need to proxy the api endpoint to remote server
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH;
-const isStandaloneMode = buildWithDocker || isDesktop;
+// const isStandaloneMode = buildWithDocker || isDesktop; // Commented out as we are forcing 'export' mode
 
-const standaloneConfig: NextConfig = {
-  output: 'standalone',
-  outputFileTracingIncludes: { '*': ['public/**/*', '.next/static/**/*'] },
-};
+// Commented out standalone config as it conflicts with 'export'
+// const standaloneConfig: NextConfig = {
+//   output: 'standalone',
+//   outputFileTracingIncludes: { '*': ['public/**/*', '.next/static/**/*'] },
+// };
 
 const nextConfig: NextConfig = {
-  ...(isStandaloneMode ? standaloneConfig : {}),
+  // ...(isStandaloneMode ? standaloneConfig : {}), // Commented out the conditional spread of standaloneConfig
+  output: 'export', // <--- Added this line to enable static HTML export
   basePath,
   compress: isProd,
   experimental: {
@@ -122,6 +124,10 @@ const nextConfig: NextConfig = {
       hmrRefreshes: true,
     },
   },
+  // Important: Static export requires reactStrictMode to be false in some Next.js versions or configurations.
+  // If you encounter issues during 'pnpm build' related to strict mode or static generation, try setting this to false.
+  // However, LobeChat might rely on strict mode features. Test thoroughly.
+  // reactStrictMode: true, // Keep it true for now, change to false if build fails specifically due to this.
   reactStrictMode: true,
   redirects: async () => [
     {
@@ -195,6 +201,8 @@ const nextConfig: NextConfig = {
     },
   ],
   // when external packages in dev mode with turbopack, this config will lead to bundle error
+  // For static export, serverExternalPackages might not be relevant in the same way,
+  // but keeping it based on original logic for production builds.
   serverExternalPackages: isProd ? ['@electric-sql/pglite'] : undefined,
 
   transpilePackages: ['pdfjs-dist', 'mermaid'],
@@ -233,12 +241,25 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  // Required for static export if using dynamic routes with parameters like /chat/:id
+  // If your app doesn't use dynamic routes extensively, this might not be strictly needed,
+  // but it's safer to include it.
+  // Note: LobeChat likely uses dynamic routes, so this is probably necessary.
+  trailingSlash: false, // Usually false for static exports unless specific server config requires it.
+
+  // Important for static export: Disable image optimization using Next.js' built-in server.
+  // Static export requires images to be handled differently, often optimized at build time or served as is.
+  images: {
+    unoptimized: true,
+  },
 };
 
 const noWrapper = (config: NextConfig) => config;
 
 const withBundleAnalyzer = process.env.ANALYZE === 'true' ? analyzer() : noWrapper;
 
+// PWA features might have limitations or require different configuration with static export.
+// Keeping the wrapper but be aware PWA might not function fully as expected without a server.
 const withPWA =
   isProd && !isDesktop
     ? withSerwistInit({
@@ -248,6 +269,8 @@ const withPWA =
       })
     : noWrapper;
 
+// Sentry integration might need adjustments for static export, especially server-side features.
+// Client-side reporting should still work.
 const hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 const withSentry =
   isProd && hasSentry
@@ -282,6 +305,7 @@ const withSentry =
             // Routes browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers. (increases server load)
             // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
             // side errors will fail.
+            // This might not work correctly in a pure static export scenario without a routing layer.
             tunnelRoute: '/monitoring',
 
             // For all available options, see:
@@ -292,4 +316,5 @@ const withSentry =
         )
     : noWrapper;
 
+// Apply the wrappers to the modified nextConfig
 export default withBundleAnalyzer(withPWA(withSentry(nextConfig) as NextConfig));
