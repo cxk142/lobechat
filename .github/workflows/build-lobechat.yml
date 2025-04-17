@@ -44,7 +44,7 @@ jobs:
         env:
           # 增加 Node.js 的可用内存到 4GB (4096 MB)
           # 如果仍然内存不足，可以尝试增加这个值，例如 6144 或 8192
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=6144
         # 如果你的构建还需要其他环境变量，可以继续在这里添加：
         #   NEXT_PUBLIC_SOME_VAR: 'some_value'
 
