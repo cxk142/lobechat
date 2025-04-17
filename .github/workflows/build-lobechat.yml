@@ -1,5 +1,6 @@
 # 文件名: .github/workflows/build-export-lobechat.yml
 # 版本：允许在没有 pnpm-lock.yaml 的情况下运行 (不推荐)
+#      并增加了 Node.js 内存限制
 
 name: Build and Export LobeChat (Next.js) # 工作流程的名称
 
@@ -26,30 +27,33 @@ jobs:
           version: 8 # 你可以指定 pnpm 版本，或移除这行使用最新稳定版
 
       # 第 3 步：设置 Node.js 环境
-      # 注意：移除了 'cache: pnpm'，因为我们不依赖仓库中的 pnpm-lock.yaml
+      # 注意：移除了 'cache: pnpm'
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x' # 指定 Node.js 版本 (请确认 LobeChat 的要求)
+          node-version: '23.x' # 指定 Node.js 版本 (请确认 LobeChat 的要求)
           # cache: 'pnpm' # <--- 已移除或注释掉此行
 
       # 第 4 步：安装项目依赖
-      # pnpm install 会在没有锁文件时根据 package.json 生成临时的依赖关系
       - name: Install dependencies
         run: pnpm install # 使用 pnpm 安装依赖
 
-      # 第 5 步：编译项目 (Next.js build)
+      # 第 5 步：编译项目 (Next.js build) - 增加内存限制
       - name: Build project
         run: pnpm build # 运行 package.json 中的 build 脚本 (通常是 next build)
-        # 如果你的构建确实需要环境变量，请像下面这样添加，并确保缩进正确：
-        # env:
+        env:
+          # 增加 Node.js 的可用内存到 4GB (4096 MB)
+          # 如果仍然内存不足，可以尝试增加这个值，例如 6144 或 8192
+          NODE_OPTIONS: --max-old-space-size=4096
+        # 如果你的构建还需要其他环境变量，可以继续在这里添加：
         #   NEXT_PUBLIC_SOME_VAR: 'some_value'
-        #   ANOTHER_VAR: ${{ secrets.YOUR_SECRET }}
 
       # 第 6 步：导出静态文件 (Next.js export)
+      # 如果此步骤也内存不足，可以取消下面 env 块的注释
       - name: Export static files
         run: pnpm exec next export # 运行 next export 命令
-        # 或者，如果 package.json 中有 export 脚本: run: pnpm run export
+        # env:
+        #   NODE_OPTIONS: --max-old-space-size=4096
 
       # 第 7 步：上传静态导出文件 (out 目录) 作为 Artifact
       - name: Upload static export artifact
